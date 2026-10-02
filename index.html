@@ -1,0 +1,451 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<title>盖座土楼</title>
+<style>
+:root{
+  color-scheme: light;
+  --sky:#8FC3D9;
+  --earth:#E3C38F;
+  --wall:#9A6436;
+  --tile:#2B211B;
+  --red:#B8302A;
+  --gold:#F2B53A;
+  --paper:#FBF3E2;
+  --ink:#2B211B;
+  --fun:"PingFang SC","HarmonyOS Sans SC","Microsoft YaHei","Noto Sans SC",sans-serif;
+  --body:"PingFang SC","HarmonyOS Sans SC","Microsoft YaHei","Noto Sans SC",sans-serif;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+[hidden]{display:none!important}
+html,body{height:100%}
+body{margin:0;background:var(--tile);color:var(--ink);font-family:var(--body);overflow:hidden;touch-action:manipulation;user-select:none;-webkit-user-select:none}
+#stage{position:relative;height:100%;max-width:520px;margin:0 auto;overflow:hidden;background:var(--sky)}
+canvas{display:block;width:100%;height:100%}
+
+.hud{position:absolute;left:0;right:0;top:0;display:flex;justify-content:space-between;align-items:flex-start;padding:14px 16px;pointer-events:none}
+.floors{font-family:var(--fun);font-weight:900;color:var(--paper);text-shadow:0 3px 0 var(--tile);font-size:64px;line-height:1;text-align:center;flex:1}
+.floors small{display:block;font-size:18px;letter-spacing:.2em;margin-top:4px}
+.best{position:absolute;right:16px;top:16px;font-family:var(--fun);font-size:16px;color:var(--paper);background:rgba(43,33,27,.55);padding:4px 10px;border-radius:20px;font-variant-numeric:tabular-nums}
+
+.toast{position:absolute;left:50%;top:26%;transform:translate(-50%,-50%) scale(.6);opacity:0;
+  font-family:var(--fun);font-size:30px;color:var(--tile);background:var(--gold);padding:10px 20px;border-radius:12px;
+  border:3px solid var(--tile);white-space:nowrap;pointer-events:none;transition:transform .25s cubic-bezier(.3,1.6,.5,1),opacity .25s;max-width:92%;text-align:center}
+.toast.show{opacity:1;transform:translate(-50%,-50%) scale(1)}
+.toast.big{background:var(--red);color:var(--paper);font-size:26px;white-space:normal;line-height:1.35}
+
+.panel{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;padding-inline:22px;padding-block:24px;
+  background:linear-gradient(180deg,rgba(43,33,27,.15),rgba(43,33,27,.72));text-align:center}
+.card{background:var(--paper);border:4px solid var(--tile);border-radius:18px;padding:22px 20px;display:flex;flex-direction:column;gap:12px;align-items:center;width:100%;max-width:400px;box-shadow:0 8px 0 var(--tile)}
+.tag{font-family:var(--fun);background:var(--red);color:var(--paper);padding:3px 12px;border-radius:20px;font-size:16px;letter-spacing:.1em}
+h1{font-family:var(--fun);font-weight:900;font-size:clamp(48px,15vw,68px);line-height:1;margin:0;color:var(--red);text-shadow:3px 3px 0 var(--gold)}
+.rule{margin:0;font-size:18px;line-height:1.65;color:var(--ink);max-width:22em}
+.rule b{color:var(--red)}
+.goals{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
+.goal{font-size:14px;background:#EEDDBC;border-radius:8px;padding:4px 9px;color:var(--ink)}
+.btn{appearance:none;border:3px solid var(--tile);cursor:pointer;font-family:var(--fun);font-size:28px;
+  background:var(--gold);color:var(--tile);padding:12px 28px;border-radius:14px;box-shadow:0 5px 0 var(--tile);width:100%}
+.btn:active{transform:translateY(4px);box-shadow:0 1px 0 var(--tile)}
+.btn:focus-visible{outline:3px solid var(--red);outline-offset:3px}
+.big-n{font-family:var(--fun);font-weight:900;font-size:clamp(84px,28vw,120px);line-height:1;color:var(--red);font-variant-numeric:tabular-nums}
+.big-n small{font-size:.3em;color:var(--ink)}
+.rank{font-family:var(--fun);font-size:clamp(26px,8vw,34px);color:var(--paper);background:var(--tile);padding:8px 18px;border-radius:10px;border:3px solid var(--gold)}
+.cmp{margin:0;font-size:17px;line-height:1.6}
+.hint{margin:0;font-size:15px;color:#6b5646}
+@media (prefers-reduced-motion: reduce){.toast{transition:none}}
+</style>
+</head>
+<body>
+
+
+<div id="stage">
+  <canvas id="cv"></canvas>
+  <div class="hud">
+    <div class="floors" id="floors">0<small>层</small></div>
+  </div>
+  <div class="best" id="best">最高 0 层</div>
+  <div class="toast" id="toast"></div>
+
+  <div class="panel" id="startPanel">
+    <div class="card">
+      <span class="tag">永定 · 国庆团圆</span>
+      <h1>盖座土楼</h1>
+      <p class="rule">土墙左右来回晃，<b>看准时机点一下屏幕</b>，把它夯在下面那层上。对得越准，楼盖得越高；歪出去的部分会掉下去。碰到<b>金色妈祖层</b>，楼身会变回原宽！</p>
+      <div class="goals">
+        <span class="goal">4 层 · 追平承启楼</span>
+        <span class="goal">7 层 · 追平西陂天后宫</span>
+        <span class="goal">10 层 · 土楼王</span>
+      </div>
+      <button class="btn" id="startBtn">开始夯土</button>
+      <p class="hint">盖完举起手机，全场比比谁的楼最高</p>
+    </div>
+  </div>
+
+  <div class="panel" id="endPanel" hidden>
+    <div class="card">
+      <span class="tag" id="endTag">楼塌啦</span>
+      <div class="big-n" id="endN">0<small> 层</small></div>
+      <div class="rank" id="endRank">学徒夯土匠</div>
+      <p class="cmp" id="endCmp"></p>
+      <button class="btn" id="againBtn">再盖一座</button>
+      <p class="hint" id="endBest"></p>
+    </div>
+  </div>
+</div>
+
+<script>
+(()=>{
+const cv = document.getElementById('cv');
+const ctx = cv.getContext('2d');
+const stage = document.getElementById('stage');
+const floorsEl = document.getElementById('floors');
+const bestEl = document.getElementById('best');
+const toastEl = document.getElementById('toast');
+const startPanel = document.getElementById('startPanel');
+const endPanel = document.getElementById('endPanel');
+
+let W=0,H=0,DPR=1;
+function resize(){
+  DPR = Math.min(window.devicePixelRatio||1, 2);
+  const r = stage.getBoundingClientRect();
+  W = r.width; H = r.height;
+  cv.width = W*DPR; cv.height = H*DPR;
+  ctx.setTransform(DPR,0,0,DPR,0,0);
+}
+window.addEventListener('resize', ()=>{ resize(); });
+resize();
+
+let best = 0;
+try{ best = +localStorage.getItem('tulou-best')||0 }catch(e){}
+bestEl.textContent = `最高 ${best} 层`;
+
+/* ---------- 声音：夯土的“咚” ---------- */
+let AC=null;
+function audio(){ if(!AC){ try{ AC = new (window.AudioContext||window.webkitAudioContext)() }catch(e){} } return AC; }
+function thud(perfect, combo){
+  const a = audio(); if(!a) return;
+  const t = a.currentTime;
+  const o = a.createOscillator(), g = a.createGain();
+  o.type='sine'; o.frequency.setValueAtTime(perfect?140:95,t); o.frequency.exponentialRampToValueAtTime(45,t+.18);
+  g.gain.setValueAtTime(.55,t); g.gain.exponentialRampToValueAtTime(.001,t+.22);
+  o.connect(g).connect(a.destination); o.start(t); o.stop(t+.25);
+  if(perfect){
+    const notes=[523,587,659,784,880,1047];
+    const f = notes[Math.min(combo-1,notes.length-1)];
+    const o2=a.createOscillator(), g2=a.createGain();
+    o2.type='triangle'; o2.frequency.value=f;
+    g2.gain.setValueAtTime(.18,t+.02); g2.gain.exponentialRampToValueAtTime(.001,t+.35);
+    o2.connect(g2).connect(a.destination); o2.start(t+.02); o2.stop(t+.4);
+  }
+}
+function crash(){
+  const a = audio(); if(!a) return;
+  const t=a.currentTime, len=.5, buf=a.createBuffer(1,a.sampleRate*len,a.sampleRate), d=buf.getChannelData(0);
+  for(let i=0;i<d.length;i++) d[i]=(Math.random()*2-1)*Math.pow(1-i/d.length,2);
+  const s=a.createBufferSource(), g=a.createGain(), f=a.createBiquadFilter();
+  f.type='lowpass'; f.frequency.value=600; s.buffer=buf; g.gain.value=.5;
+  s.connect(f).connect(g).connect(a.destination); s.start(t);
+}
+
+/* ---------- 游戏状态 ---------- */
+const LH = 34;               // 每层高度
+let layers, cur, debris, particles, camY, camTarget, running=false, combo=0, speed, dir, t0, fallBlock=null, shake=0;
+let milestonesHit, windUntil=0, swayT=0, flashes=[];
+const PRAISE=['夯实！','漂亮！','稳！','神了！','老师傅！','土楼王手艺！'];
+const MISS=['歪了歪了！','削掉一块！','手抖了？','差一点！','哎呀！'];
+
+const MILESTONES = [
+  {n:4,  text:"追平承启楼！<br>“高四层，楼四圈”"},
+  {n:7,  text:"追平西陂天后宫！<br>七层宝塔式，全国唯一"},
+  {n:10, text:"土楼王诞生！<br>全场先给你鼓个掌"},
+  {n:15, text:"妈祖都来点赞了！"},
+  {n:20, text:"永定传说级工匠！"},
+  {n:30, text:"楼要盖到云里去了！"}
+];
+
+function baseWidth(){ return Math.min(W*0.62, 300); }
+
+function reset(){
+  const bw = baseWidth();
+  layers = [{x:(W-bw)/2, w:bw, y:0, hue:0}];   // y: 从地面往上的层号
+  debris=[]; particles=[]; combo=0; speed=2.2; fallBlock=null; shake=0;
+  camY=0; camTarget=0; milestonesHit=new Set(); windUntil=0; flashes=[];
+  spawn();
+  setFloors(0);
+}
+function spawn(){
+  const top = layers[layers.length-1];
+  const n = layers.length;
+  speed = Math.min(2.2 + n*0.16, 7.5);
+  dir = (n%2)? 1 : -1;
+  const special = (n>=5 && n%6===5) ? 'mazu' : null;
+  cur = {w:top.w, x: dir>0 ? -top.w : W, y:n, hue:n, special};
+  if(special) setTimeout(()=>toast('金色妈祖层！<br>放上去，楼身恢复原宽', true), 150);
+  if(n>=12 && n%5===2 && !special){ windUntil = performance.now()+3500; toast('起风了！墙晃得更快了', true); }
+}
+function setFloors(n){ floorsEl.innerHTML = `${n}<small>层</small>`; }
+
+let toastTimer=null;
+function toast(html, big){
+  toastEl.innerHTML = html;
+  toastEl.classList.toggle('big', !!big);
+  toastEl.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(()=>toastEl.classList.remove('show'), big?1700:700);
+}
+
+function drop(){
+  if(!running || fallBlock) return;
+  const top = layers[layers.length-1];
+  const left = Math.max(cur.x, top.x), right = Math.min(cur.x+cur.w, top.x+top.w);
+  const overlap = right-left;
+  if(overlap <= 0){
+    fallBlock = {...cur, vy:0, vr:(cur.x<top.x?-1:1)*0.04, r:0};
+    crash(); shake=12;
+    setTimeout(gameOver, 900);
+    return;
+  }
+  const tol = Math.max(4, top.w*0.04);
+  let placed;
+  if(Math.abs(cur.x-top.x) <= tol){
+    combo++;
+    let w = top.w;
+    if(combo>=3) w = Math.min(w+8, baseWidth());
+    placed = {x: top.x - (w-top.w)/2, w, y:cur.y, hue:cur.hue};
+    thud(true, combo);
+    burst(placed.x+placed.w/2, placed.y, true);
+    flashes.push({x:placed.x+placed.w/2, y:placed.y, r:10, life:1});
+    const word = PRAISE[Math.min(combo-1, PRAISE.length-1)];
+    toast(combo>=2 ? `${word} 连击 ×${combo}` : word);
+  }else{
+    combo=0;
+    placed = {x:left, w:overlap, y:cur.y, hue:cur.hue};
+    const cutX = cur.x < top.x ? cur.x : right;
+    const cutW = cur.w - overlap;
+    debris.push({x:cutX, w:cutW, y:cur.y, vy:0, vx:(cur.x<top.x?-1.2:1.2), r:0, vr:(cur.x<top.x?-0.05:0.05), hue:cur.hue});
+    thud(false,0);
+    burst(cur.x<top.x ? left : right, cur.y, false);
+    if(cutW > top.w*0.12) toast(MISS[Math.floor(Math.random()*MISS.length)]);
+  }
+  if(cur.special==='mazu'){
+    const bw=baseWidth();
+    placed.x = placed.x + placed.w/2 - bw/2; placed.w = bw; placed.special='mazu';
+    burst(placed.x+placed.w/2, placed.y, true); burst(placed.x+placed.w/2, placed.y, true);
+    flashes.push({x:placed.x+placed.w/2, y:placed.y, r:10, life:1.4});
+    setTimeout(()=>toast('妈祖保佑！楼身变宽啦', true), 50);
+  }
+  if(placed.w < baseWidth()*0.35 && !milestonesHit.has('narrow')){ milestonesHit.add('narrow'); setTimeout(()=>toast('楼在晃！稳住！', true), 300); }
+  layers.push(placed);
+  const n = layers.length-1;
+  setFloors(n);
+  const m = MILESTONES.find(m=>m.n===n);
+  if(m && !milestonesHit.has(n)){ milestonesHit.add(n); setTimeout(()=>toast(m.text,true),250); }
+  camTarget = Math.max(0, (n+1)*LH - H*0.45);
+  spawn();
+}
+
+function burst(x, layerY, gold){
+  for(let i=0;i<(gold?18:8);i++){
+    particles.push({x, y:layerY, vx:(Math.random()-.5)*5, vy:-Math.random()*3-1, life:1, gold});
+  }
+}
+
+/* ---------- 绘制 ---------- */
+const groundY = ()=> H - 90;         // 地面在屏幕上的位置（相机为 0 时）
+function screenY(layerY){ return groundY() - (layerY+1)*LH + camY; }
+
+function lerpColor(a,b,t){
+  const pa=a.match(/\w\w/g).map(h=>parseInt(h,16)), pb=b.match(/\w\w/g).map(h=>parseInt(h,16));
+  return '#'+pa.map((v,i)=>Math.round(v+(pb[i]-v)*t).toString(16).padStart(2,'0')).join('');
+}
+function drawSky(){
+  const h = camY / (LH*25);           // 越高天越晚
+  const t = Math.min(h,1);
+  const top = t<.5 ? lerpColor('7FB9D6','E98C5B',t*2) : lerpColor('E98C5B','1D1B3A',(t-.5)*2);
+  const bot = t<.5 ? lerpColor('CFE6EE','F7C98A',t*2) : lerpColor('F7C98A','4A3358',(t-.5)*2);
+  const g = ctx.createLinearGradient(0,0,0,H); g.addColorStop(0,'#'+top.slice(1)); g.addColorStop(1,'#'+bot.slice(1));
+  ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
+  if(t>.6){
+    ctx.fillStyle=`rgba(255,248,220,${(t-.6)*2})`;
+    for(let i=0;i<40;i++){ const sx=(i*97)%W, sy=(i*53)%(H*.6); ctx.fillRect(sx,sy,2,2); }
+  }
+  // 远山
+  const gy = groundY()+camY;
+  ctx.fillStyle='rgba(60,95,80,.55)';
+  ctx.beginPath(); ctx.moveTo(0,gy);
+  for(let x=0;x<=W;x+=20){ ctx.lineTo(x, gy-60-Math.sin(x/70)*22-Math.sin(x/23)*8); }
+  ctx.lineTo(W,gy); ctx.closePath(); ctx.fill();
+  ctx.fillStyle='rgba(45,78,62,.8)';
+  ctx.beginPath(); ctx.moveTo(0,gy);
+  for(let x=0;x<=W;x+=20){ ctx.lineTo(x, gy-28-Math.sin(x/45+1)*14); }
+  ctx.lineTo(W,gy); ctx.closePath(); ctx.fill();
+  // 地面
+  ctx.fillStyle='#6E8B4E'; ctx.fillRect(0,gy,W,H);
+  ctx.fillStyle='#5b7641'; ctx.fillRect(0,gy,W,6);
+}
+
+function drawLayer(L, yScreen, alpha=1){
+  const x=L.x, w=L.w, h=LH;
+  ctx.globalAlpha=alpha;
+  // 墙体
+  const shade = L.special==='mazu' ? '#F2C650' : ((L.hue%2)? '#DDBB84':'#E6C993');
+  ctx.fillStyle = shade; ctx.fillRect(x, yScreen, w, h);
+  // 夯土纹
+  ctx.fillStyle='rgba(154,100,54,.18)';
+  for(let i=1;i<3;i++) ctx.fillRect(x, yScreen+i*h/3, w, 1.5);
+  // 瓦檐
+  const isTemple = (L.y%7===0 && L.y>0);
+  ctx.fillStyle = isTemple ? '#B8302A' : '#2B211B';
+  ctx.fillRect(x-4, yScreen-3, w+8, 6);
+  // 窗
+  ctx.fillStyle='#4A3325';
+  const step=22; const n=Math.floor((w-10)/step);
+  const off = x + (w - n*step)/2 + step/2 - 4;
+  for(let i=0;i<n;i++){ ctx.fillRect(off+i*step, yScreen+11, 8, 12); }
+  if(L.y===0){ // 大门
+    ctx.fillStyle='#B8302A'; ctx.fillRect(x+w/2-12, yScreen+6, 24, h-6);
+    ctx.fillStyle='#F2B53A'; ctx.fillRect(x+w/2-1, yScreen+6, 2, h-6);
+  }
+  ctx.strokeStyle='rgba(43,33,27,.55)'; ctx.lineWidth=1.5; ctx.strokeRect(x+.5, yScreen+.5, w-1, h-1);
+  ctx.globalAlpha=1;
+}
+
+function drawRoof(L, yScreen){
+  // 顶层的小屋檐（天后宫式翘角）
+  ctx.fillStyle='#B8302A';
+  ctx.beginPath();
+  ctx.moveTo(L.x-12, yScreen+2);
+  ctx.quadraticCurveTo(L.x+L.w/2, yScreen-26, L.x+L.w+12, yScreen+2);
+  ctx.lineTo(L.x+L.w+2, yScreen-2);
+  ctx.quadraticCurveTo(L.x+L.w/2, yScreen-18, L.x-2, yScreen-2);
+  ctx.closePath(); ctx.fill();
+  ctx.fillStyle='#F2B53A';
+  ctx.beginPath(); ctx.arc(L.x+L.w/2, yScreen-22, 4, 0, Math.PI*2); ctx.fill();
+}
+
+let last=performance.now();
+function frame(now){
+  const dt = Math.min((now-last)/16.67, 3); last=now;
+  camY += (camTarget-camY)*0.08*dt;
+
+  if(running && cur && !fallBlock){
+    const wind = now < windUntil ? 1.55 : 1;
+    cur.x += speed*wind*dir*dt;
+    if(cur.x > W - cur.w*0.15){ cur.x = W - cur.w*0.15; dir=-1; }
+    if(cur.x < -cur.w*0.85){ cur.x = -cur.w*0.85; dir=1; }
+  }
+
+  ctx.save();
+  if(shake>0){ ctx.translate((Math.random()-.5)*shake,(Math.random()-.5)*shake); shake*=0.85; if(shake<.5) shake=0; }
+  drawSky();
+
+  swayT += 0.05*dt;
+  const narrow = layers.length>2 ? Math.max(0, 1 - layers[layers.length-1].w/(baseWidth()*0.45)) : 0;
+  for(const L of layers){
+    const ys = screenY(L.y);
+    const sway = narrow * Math.sin(swayT) * Math.min(L.y,30) * 0.35;
+    ctx.save(); ctx.translate(sway,0);
+    if(!(ys>H+LH || ys<-LH*2)) drawLayer(L, ys);
+    ctx.restore();
+  }
+  const topL = layers[layers.length-1];
+  if(!running || fallBlock){ drawRoof(topL, screenY(topL.y)); }
+
+  // 下落的碎块
+  for(const d of debris){
+    d.vy += 0.5*dt; d.y -= d.vy*dt/LH; d.x += d.vx*dt; d.r += d.vr*dt;
+  }
+  debris = debris.filter(d=> screenY(d.y) < H+80);
+  for(const d of debris){
+    const ys=screenY(d.y);
+    ctx.save(); ctx.translate(d.x+d.w/2, ys+LH/2); ctx.rotate(d.r);
+    drawLayer({...d, x:-d.w/2, y:1}, -LH/2, .9); ctx.restore();
+  }
+
+  // 当前晃动的墙
+  if(running && cur && !fallBlock){
+    const ys=screenY(cur.y);
+    ctx.fillStyle='rgba(43,33,27,.12)';
+    ctx.fillRect(cur.x, screenY(topL.y)-2, cur.w, 4);
+    drawLayer(cur, ys);
+  }
+  if(fallBlock){
+    fallBlock.vy += 0.6*dt; fallBlock.y -= fallBlock.vy*dt/LH; fallBlock.r += fallBlock.vr*dt;
+    const ys=screenY(fallBlock.y);
+    ctx.save(); ctx.translate(fallBlock.x+fallBlock.w/2, ys+LH/2); ctx.rotate(fallBlock.r);
+    drawLayer({...fallBlock, x:-fallBlock.w/2, y:1}, -LH/2); ctx.restore();
+  }
+
+  for(const f of flashes){ f.r += 6*dt; f.life -= 0.04*dt; }
+  flashes = flashes.filter(f=>f.life>0);
+  for(const f of flashes){
+    ctx.globalAlpha=Math.max(f.life,0)*.8; ctx.strokeStyle='#FFF4C2'; ctx.lineWidth=4;
+    ctx.beginPath(); ctx.ellipse(f.x, screenY(f.y)+LH/2, f.r*1.6, f.r*.5, 0, 0, Math.PI*2); ctx.stroke();
+  }
+  ctx.globalAlpha=1;
+  // 粒子
+  for(const p of particles){ p.x+=p.vx*dt; p.vy+=0.25*dt; p.y -= p.vy*dt/LH*0.9; p.life-=0.025*dt; }
+  particles = particles.filter(p=>p.life>0);
+  for(const p of particles){
+    ctx.globalAlpha=Math.max(p.life,0);
+    ctx.fillStyle=p.gold?'#F2B53A':'#B98B57';
+    ctx.fillRect(p.x, screenY(p.y)+LH/2, p.gold?5:4, p.gold?5:4);
+  }
+  ctx.globalAlpha=1;
+  ctx.restore();
+
+  requestAnimationFrame(frame);
+}
+
+/* ---------- 结算 ---------- */
+const RANKS = [
+  {min:20, t:"土楼之神",       c:"盖了 {n} 层！这楼能从永定望到厦门了。"},
+  {min:15, t:"妈祖亲封大工匠", c:"{n} 层，比西陂天后宫还高出一倍多。"},
+  {min:10, t:"永定土楼王",     c:"{n} 层，承启楼（4 层）都得叫你一声师傅。"},
+  {min:7,  t:"天后宫同款",     c:"{n} 层，追平了七层宝塔式的西陂天后宫！"},
+  {min:4,  t:"承启楼同款",     c:"{n} 层，跟“土楼王”承启楼一样高了。"},
+  {min:1,  t:"学徒夯土匠",     c:"{n} 层，离承启楼的 4 层还差一点，再来！"},
+  {min:0,  t:"还没开工",       c:"第一层就歪了，没事，土楼也不是一天盖成的。"}
+];
+function gameOver(){
+  running=false;
+  const n = layers.length-1;
+  const R = RANKS.find(r=>n>=r.min);
+  const isBest = n>best;
+  if(isBest){ best=n; try{localStorage.setItem('tulou-best', String(best))}catch(e){} }
+  bestEl.textContent = `最高 ${best} 层`;
+  document.getElementById('endTag').textContent = isBest && n>0 ? '新纪录！' : '楼盖好啦';
+  document.getElementById('endN').innerHTML = `${n}<small> 层</small>`;
+  document.getElementById('endRank').textContent = R.t;
+  document.getElementById('endCmp').textContent = R.c.replace('{n}', n);
+  document.getElementById('endBest').textContent = `你的最高纪录：${best} 层 · 举起手机比一比`;
+  endPanel.hidden = false;
+}
+
+function start(){
+  audio();
+  if(AC && AC.state==='suspended') AC.resume();
+  startPanel.hidden = true; endPanel.hidden = true;
+  reset(); running = true;
+}
+
+document.getElementById('startBtn').addEventListener('click', e=>{ e.stopPropagation(); start(); });
+document.getElementById('againBtn').addEventListener('click', e=>{ e.stopPropagation(); start(); });
+stage.addEventListener('pointerdown', e=>{
+  if(e.target.closest('.panel')) return;
+  e.preventDefault(); drop();
+});
+window.addEventListener('keydown', e=>{ if(e.code==='Space'){ e.preventDefault(); if(running) drop(); } });
+
+// 首屏：先摆一座示范楼
+reset();
+for(let i=0;i<5;i++){ const t=layers[layers.length-1]; layers.push({x:t.x+ (i%2?3:-3), w:t.w-6, y:layers.length, hue:layers.length}); }
+cur=null;
+requestAnimationFrame(frame);
+})();
+</script>
+
+</body>
+</html>
